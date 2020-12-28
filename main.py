@@ -10,6 +10,11 @@ import requests
 log = logging.getLogger("jira")
 
 
+def weeks_for_year(year):
+    last_week = datetime.date(year, 12, 28)
+    return last_week.isocalendar()[1]
+
+
 class Jira(object):
     def __init__(self, root_url, username, token):
         self.API_URL = root_url
@@ -43,7 +48,7 @@ class Jira(object):
             data=payload,
             headers=headers
         )
-        print(json.dumps(json.loads(response.text), sort_keys=True, indent=4, separators=(",", ": ")))
+        return json.loads(response.text)
 
     def _get_auth(self):
         return f"Basic {base64.b64encode(f'{self.USERNAME}:{self.PASSWORD}'.encode('ascii')).decode()}"
@@ -62,15 +67,13 @@ class Jira(object):
             "type": "scrum"
         })
 
-
         response = requests.request(
             "GET",
             url,
             headers=headers,
             data = payload
         )
-
-        print(json.dumps(json.loads(response.text), sort_keys=True, indent=4, separators=(",", ": ")))
+        return json.loads(response.text)
 
     def get_all_sprints(self, board_id:int):
         url = f"{self.API_URL}/rest/agile/1.0/board/{board_id}/sprint"
@@ -85,14 +88,13 @@ class Jira(object):
             "maxResults": 1000
         })
 
-
         response = requests.request(
             "GET",
             url,
             headers=headers,
             data = payload
         )
-        print(json.dumps(json.loads(response.text), sort_keys=True, indent=4, separators=(",", ": ")))
+        return json.loads(response.text)
 
     def get_sprint(self, sprint_id):
         url = f"{self.API_URL}/rest/agile/1.0/sprint/{sprint_id}"
@@ -107,49 +109,43 @@ class Jira(object):
             url,
             headers=headers
         )
+        return json.loads(response.text)
 
-        print(json.dumps(json.loads(response.text), sort_keys=True, indent=4, separators=(",", ": ")))
 
-
+    def create_sprints_for_year(self, board_id, year, first_week = 1, num_weeks=0):
+        begin_weekday = 6
+        last_week_in_year = weeks_for_year(year)
+        if num_weeks == 0:
+            num_weeks = last_week_in_year - first_week + 1
+        for week_number in range(first_week, first_week+num_weeks):
+            begin_date = datetime.date.fromisocalendar(year,week_number,begin_weekday)
+            if begin_date.year != year:
+                # due to starting sprints in saturday
+                continue
+            sprint_name = f"Sprint tydzień {week_number} ({begin_date.isoformat()})"
+            sprint_start_date = datetime.datetime.combine(begin_date, datetime.datetime.min.time())
+            sprint_end_date = sprint_start_date + datetime.timedelta(days=6, hours=23, minutes=59, seconds=59)
+            sprint_start_date_str = sprint_start_date.isoformat()
+            sprint_end_date_str = sprint_end_date.isoformat()
+            self.create_sprint(sprint_name, start_date=sprint_start_date_str, end_date=sprint_end_date_str, origin_board_id=board_id)
 
 with open('credentials.json') as fp:
     credentials = json.load(fp)
 
-def weeks_for_year(year):
-    last_week = datetime.date(year, 12, 28)
-    return last_week.isocalendar()[1]
-
-def create_sprints_for_year(board_id, year, first_week = 1, num_weeks=0):
-    begin_weekday = 6
-    end_weekday = 5
-    last_week_in_year = weeks_for_year(year)
-    if num_weeks == 0:
-        num_weeks = last_week_in_year - first_week + 1
-    jira = Jira(**credentials)
-    for week_number in range(first_week, first_week+num_weeks):
-        begin_date = datetime.date.fromisocalendar(year,week_number,begin_weekday)
-        if begin_date.year != year:
-            # due to starting sprints in saturday
-            continue
-        sprint_name = f"Sprint tydzień {week_number} ({begin_date.isoformat()})"
-        sprint_start_date = datetime.datetime.combine(begin_date, datetime.datetime.min.time())
-        sprint_end_date = sprint_start_date + datetime.timedelta(days=6, hours=23, minutes=59, seconds=59)
-        sprint_start_date_str = sprint_start_date.isoformat()
-        sprint_end_date_str = sprint_end_date.isoformat()
-        print(sprint_name)
-        #jira.create_sprint(sprint_name, start_date=sprint_start_date_str, end_date=sprint_end_date_str, origin_board_id=board_id)
+j = Jira(**credentials)
 
 
 board_id = 1
-create_sprints_for_year(board_id, 2021)
+#j.create_sprints_for_year(board_id, 2021)
 
-
-j = Jira(**credentials)
 
 #j.get_all_boards()
-j.get_all_sprints(1)
+content = j.get_all_sprints(1)
+print(json.dumps(content, sort_keys=False, indent=4, separators=(",", ": ")))
 
-#j.get_sprint(1)
+
+content = j.get_sprint(1)
+print(json.dumps(content, sort_keys=False, indent=4, separators=(",", ": ")))
 #j.get_sprint(2)
 #j.get_sprint(3)
 
