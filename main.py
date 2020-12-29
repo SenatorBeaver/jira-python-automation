@@ -129,6 +129,41 @@ class Jira(object):
             sprint_end_date_str = sprint_end_date.isoformat()
             self.create_sprint(sprint_name, start_date=sprint_start_date_str, end_date=sprint_end_date_str, origin_board_id=board_id)
 
+    def create_issue(self, project_name:str, name:str, due_date:str):
+        url = f"{self.API_URL}/rest/api/3/issue"
+
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization" : self._get_auth()
+        }
+
+        data = {
+            "fields" : {
+                "summary": name,
+                "duedate": due_date,
+                "project": {
+                    "key": project_name
+                },
+                "issuetype":
+                    {
+                        "id" : "10002"
+                    }
+            }
+        }
+
+        payload = json.dumps(data)
+
+        response = requests.request(
+            "POST",
+            url,
+            data=payload,
+            headers=headers
+        )
+        return json.loads(response.text)
+
+
+
 with open('credentials.json') as fp:
     credentials = json.load(fp)
 
@@ -138,14 +173,17 @@ j = Jira(**credentials)
 board_id = 1
 #j.create_sprints_for_year(board_id, 2021)
 
+content = j.create_issue("DOM", "nazwa", datetime.datetime.now().isoformat())
+print(json.dumps(content, sort_keys=False, indent=4, separators=(",", ": ")))
+
 
 #j.get_all_boards()
-content = j.get_all_sprints(1)
-print(json.dumps(content, sort_keys=False, indent=4, separators=(",", ": ")))
+#content = j.get_all_sprints(1)
+#print(json.dumps(content, sort_keys=False, indent=4, separators=(",", ": ")))
 
 
-content = j.get_sprint(1)
-print(json.dumps(content, sort_keys=False, indent=4, separators=(",", ": ")))
+#content = j.get_sprint(1)
+#print(json.dumps(content, sort_keys=False, indent=4, separators=(",", ": ")))
 #j.get_sprint(2)
 #j.get_sprint(3)
 
